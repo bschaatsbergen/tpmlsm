@@ -140,9 +140,11 @@ sudo systemctl daemon-reload
 
 ### Limitations
 
-* On Ubuntu every `tpm2_*` command is a symlink to one `tpm2` binary, so
-  allowing one allows all of them. The same goes for interpreters: allowing
-  `python3` allows every Python script.
+* An entry allows a binary, and with it everything that binary can be made
+  to do. An interpreter such as `python3` runs any script it is given, and a
+  multi-call binary runs every command it contains (on Ubuntu, every `tpm2_*`
+  command is a symlink to one `tpm2` binary). Allow the narrowest binary that
+  does the job.
 * An update to an allowed binary changes its hash, so it is denied until a
   `tpmlsm` with the new hash is deployed.
 * A process that was already running when `tpmlsm` loaded is denied until it
