@@ -92,33 +92,21 @@ changing the list means building and shipping a new `tpmlsm` and rebooting.
 
 ### Limitations
 
-* An entry allows a binary, and with it everything that binary can be made
-  to do. An interpreter such as `python3` runs any script it is given, and a
-  multi-call binary runs every command it contains (on Ubuntu, every `tpm2_*`
-  command is a symlink to one `tpm2` binary). Allow the narrowest binary that
-  does the job.
-* `tpmlsm` checks the binary's own file, not the shared libraries it loads,
-  and anyone who can start an allowed program can make it load extra code.
-  In testing, starting the allowed `tpm2_getrandom` with `LD_PRELOAD` pointing
-  at another library ran that library inside the allowed process, and it
-  could open the TPM. Root can do the same to every program through
-  `/etc/ld.so.preload`, or attach a debugger to a running allowed process. A
-  statically linked binary, such as a Go program built with `CGO_ENABLED=0`,
-  loads no shared libraries, so allow static binaries where you can. Setting
-  `kernel.yama.ptrace_scope=3` stops debuggers from attaching, for everyone
-  including root, until the next reboot.
-* Only the listed files are checked, matched by device and inode. That needs
-  the device number `stat` reports to agree with the kernel's, which holds on
-  ext4 (tested). btrfs reports a separate device number per subvolume, so
-  there nothing matches and every open of the TPM is denied.
-* An update to an allowed binary changes its hash, so it is denied until a
-  `tpmlsm` with the new hash is deployed.
-* A process that was already running when `tpmlsm` loaded is denied until it
-  is restarted, because its hash is only checked at exec.
-* The allowlist map is frozen, so it can't be changed from userspace, root
-  included. Root can still remove the pins on bpffs, load a kernel module, or
-  boot another kernel. Pair `tpmlsm` with Secure Boot and kernel lockdown (it
-  loads under both `lockdown=integrity` and `lockdown=confidentiality`).
+* Allowing a binary allows everything it can do. Allowing `python3` allows
+  every Python script, and on Ubuntu all `tpm2_*` commands are one `tpm2`
+  binary.
+* Only the binary is checked, not the libraries it loads. Anyone who can start
+  an allowed program can slip in code with `LD_PRELOAD`, and root also with
+  `/etc/ld.so.preload` or a debugger. Prefer static binaries, such as Go built
+  with `CGO_ENABLED=0`.
+* Tested on ext4. On btrfs the file lookup never matches, so every TPM open is
+  denied.
+* Updating an allowed binary locks it out until you ship a new `tpmlsm` and
+  reboot.
+* Programs already running when `tpmlsm` loads are denied until they restart.
+* Root can still switch `tpmlsm` off by deleting its pins, loading a kernel
+  module or booting another kernel. Secure Boot and kernel lockdown (both modes
+  work) make that harder.
 
 ## Developing
 
