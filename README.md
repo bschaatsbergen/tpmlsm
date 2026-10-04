@@ -77,17 +77,6 @@ sudo update-grub && sudo reboot
 SHA-256 (`ima_hash=sha256`, the default on Ubuntu); with any other algorithm
 every binary is denied.
 
-### IMA policy
-
-None is needed. At exec, `tpmlsm` only hashes the files on the allowlist; any
-other program costs one map lookup. Without an IMA policy an allowed binary is
-hashed on every exec. A policy that measures executables
-(`measure func=BPRM_CHECK mask=MAY_EXEC` in `/etc/ima/ima-policy`, which
-systemd loads at boot) lets IMA keep those hashes, but also makes IMA measure
-every program the machine runs, once each. Avoid the built-in
-`ima_policy=tcb`, which also measures every file root reads, so a file that
-keeps changing, such as a log, is measured again after every change.
-
 ### Allowlist
 
 Add every binary that may open the TPM to `allowlist.txt` as `sha256sum`
@@ -132,8 +121,7 @@ changing the list means building and shipping a new `tpmlsm` and rebooting.
 * The allowlist map is frozen, so it can't be changed from userspace, root
   included. Root can still remove the pins on bpffs, load a kernel module, or
   boot another kernel. Pair `tpmlsm` with Secure Boot and kernel lockdown (it
-  loads under both `lockdown=integrity` and `lockdown=confidentiality`), and
-  use remote attestation of the IMA log in PCR 10 to check that it loaded.
+  loads under both `lockdown=integrity` and `lockdown=confidentiality`).
 
 ## Developing
 
