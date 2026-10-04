@@ -167,12 +167,15 @@ sudo systemctl daemon-reload
   multi-call binary runs every command it contains (on Ubuntu, every `tpm2_*`
   command is a symlink to one `tpm2` binary). Allow the narrowest binary that
   does the job.
-* Only the binary itself is hashed, not the shared libraries it loads. Code
-  injected into an allowed, dynamically linked binary runs with its
-  permission: `LD_PRELOAD` worked in testing, and root can also use
-  `/etc/ld.so.preload` or ptrace. Prefer statically linked binaries you build
-  yourself, such as a Go binary built with `CGO_ENABLED=0`, and set
-  `kernel.yama.ptrace_scope=3`.
+* `tpmlsm` checks the binary's own file, not the shared libraries it loads,
+  and anyone who can start an allowed program can make it load extra code.
+  In testing, starting the allowed `tpm2_getrandom` with `LD_PRELOAD` pointing
+  at another library ran that library inside the allowed process, and it
+  could open the TPM. Root can do the same to every program through
+  `/etc/ld.so.preload`, or attach a debugger to a running allowed process. A
+  statically linked binary, such as a Go program built with `CGO_ENABLED=0`,
+  loads no shared libraries, so allow static binaries where you can. Setting
+  `kernel.yama.ptrace_scope=3` stops debuggers from attaching.
 * An update to an allowed binary changes its hash, so it is denied until a
   `tpmlsm` with the new hash is deployed.
 * A process that was already running when `tpmlsm` loaded is denied until it
