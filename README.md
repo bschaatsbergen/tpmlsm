@@ -108,30 +108,11 @@ sha256sum "$(readlink -f /usr/bin/tpm2_getrandom)" >> allowlist.txt
 make
 ```
 
-`tpmlsm` refuses to start with an empty or malformed allowlist. Changing the
-list means building and shipping a new `tpmlsm`.
-
-### Usage
-
-```
-$ ./tpmlsm help
-tpmlsm is an eBPF-based Linux kernel guard that lets only binaries in its
-compiled-in allowlist use the TPM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
-and stays until the next reboot.
-
-Usage:
-  tpmlsm [options]   load and enforce the allowlist
-  tpmlsm help        show this help
-
-Options:
-  -watch
-    	keep running and log allow and deny events until Ctrl-C
-```
-
-Enforcement is pinned to `/sys/fs/bpf/tpmlsm` and stays until the next reboot.
-There is no command to remove it: changing the rules means building a new
-`tpmlsm` and rebooting. Running `tpmlsm` again while it is enforcing does
-nothing.
+`tpmlsm` refuses to start with an empty or malformed allowlist. Run
+`sudo ./tpmlsm` at every boot, before anything that uses the TPM, and add
+`-watch` to keep it running and log every allowed and denied open.
+Enforcement lasts until the next reboot. There is no command to remove it, so
+changing the list means building and shipping a new `tpmlsm` and rebooting.
 
 ### Limitations
 
