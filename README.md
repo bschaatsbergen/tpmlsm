@@ -98,6 +98,33 @@ Options:
 Enforcement is pinned to `/sys/fs/bpf/tpmlsm` and stays after `tpmlsm` exits.
 Remove it with `sudo ./tpmlsm unload`, or reboot.
 
+### Running as a service
+
+`tpmlsm` runs on any Linux machine that meets the requirements above and has a
+TPM at `/dev/tpm0` and `/dev/tpmrm0`. To load it at boot, install the binary
+and the systemd unit from `contrib/systemd`, then enable it:
+
+```
+sudo install -m 0755 tpmlsm /usr/local/bin/tpmlsm
+sudo install -m 0644 contrib/systemd/tpmlsm.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now tpmlsm
+```
+
+The unit runs `tpmlsm` once and stays active while enforcement is on;
+`systemctl stop tpmlsm` runs `tpmlsm unload`. A process that is already
+running when `tpmlsm` loads is denied until it restarts, so order services
+that use the TPM after it, with `After=tpmlsm.service` in their units.
+
+If a service creates the TPM device instead of the kernel, such as
+[swtpm](https://github.com/stefanberger/swtpm) in a VM, order `tpmlsm` after
+it with a drop-in:
+
+```
+sudo mkdir -p /etc/systemd/system/tpmlsm.service.d
+printf '[Unit]\nAfter=swtpm.service\nRequires=swtpm.service\n' | sudo tee /etc/systemd/system/tpmlsm.service.d/swtpm.conf
+sudo systemctl daemon-reload
+```
+
 ### Limitations
 
 * On Ubuntu every `tpm2_*` command is a symlink to one `tpm2` binary, so

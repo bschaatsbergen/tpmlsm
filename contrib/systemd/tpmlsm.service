@@ -1,0 +1,15 @@
+[Unit]
+Description=tpmlsm: only allowlisted binaries may open the TPM
+Documentation=https://github.com/bschaatsbergen/tpmlsm
+# Start before anything that uses the TPM; a process that is already running
+# when tpmlsm loads is denied until it restarts. If a service creates the TPM
+# device (swtpm, for example), order this unit after it with a drop-in.
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/tpmlsm
+ExecStop=/usr/local/bin/tpmlsm unload
+
+[Install]
+WantedBy=multi-user.target
