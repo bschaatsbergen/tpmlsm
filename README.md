@@ -7,9 +7,10 @@ a list of binaries, it compiles that list in, and from then on the kernel
 refuses every other program that tries to open `/dev/tpm0` or `/dev/tpmrm0`,
 also when it runs as root. Everything else on the machine works as before.
 
-That stops programs that shouldn't touch the TPM, including ones running as
-root. It doesn't stop someone with root who sets out to remove `tpmlsm` or get
-around it; see [Limitations](#limitations).
+Like AppArmor or SELinux, `tpmlsm` is enforced by the kernel it runs in, so
+someone with full control of the machine can still remove it or get around it.
+Secure Boot and kernel lockdown make that harder, and attestation can show
+whether it loaded at boot; see [Limitations](#limitations).
 
 It's built on [eBPF](https://ebpf.io) and BPF LSM. A binary is on the list by
 its path and the SHA-256 of its contents, so changing the file, or copying it
