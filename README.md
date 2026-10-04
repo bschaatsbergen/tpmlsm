@@ -173,7 +173,8 @@ sudo systemctl daemon-reload
   is restarted, because its hash is only checked at exec.
 * The allowlist map is frozen, so it can't be changed from userspace, root
   included. Root can still remove the pins on bpffs, load a kernel module, or
-  boot another kernel. Pair `tpmlsm` with Secure Boot and kernel lockdown, and
+  boot another kernel. Pair `tpmlsm` with Secure Boot and kernel lockdown (it
+  loads under both `lockdown=integrity` and `lockdown=confidentiality`), and
   use remote attestation of the IMA log (`ima_policy=tcb`, PCR 10) to check
   that it loaded.
 

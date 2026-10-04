@@ -4,7 +4,6 @@
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include <bpf/bpf_core_read.h>
 
 #define EPERM 1
 
@@ -92,7 +91,9 @@ int BPF_PROG(tpm_open, struct file *file, int ret)
     if (ret)
         return ret;
 
-    u32 dev = BPF_CORE_READ(file, f_inode, i_rdev);
+    // Read directly: BPF_CORE_READ uses bpf_probe_read, which
+    // lockdown=confidentiality forbids.
+    u32 dev = file->f_inode->i_rdev;
     if (!bpf_map_lookup_elem(&tpm_devs, &dev))
         return 0;
 
