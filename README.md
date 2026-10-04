@@ -110,7 +110,10 @@ Limitations.
 * Programs already running when `tpmlsm` loads are denied until they restart.
 * Root can still switch `tpmlsm` off by deleting its pins, loading a kernel
   module or booting another kernel. Secure Boot and kernel lockdown (both modes
-  work) make that harder.
+  work) make that harder. More hooks that refuse to delete the pins, unmount
+  bpffs or detach the programs would close the rest while the machine runs,
+  leaving a reboot as the only way. Attestation can then show a verifier whether
+  `tpmlsm` loaded again after the reboot.
 
 ## Developing
 
