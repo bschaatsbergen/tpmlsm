@@ -11,8 +11,21 @@ The allowed hashes are compiled into the `tpmlsm` binary. Build it from the
 same release as the binaries it allows, and anything deployed outside that
 release is denied.
 
-The following example allows `tpm2_getrandom`, after which root can still read
-random bytes from the TPM but `cat` is denied:
+`tpmlsm` only checks opens of `/dev/tpm0` and `/dev/tpmrm0`. Every other file,
+and every program that doesn't touch the TPM, works as before.
+
+The following example has the hash of `tpm2_getrandom` compiled in. Run as
+root, `tpm2_getrandom` can still read random bytes from the TPM, but `cat`
+can't open the TPM device:
+
+```
+$ sudo tpm2_getrandom --hex 8 -T device:/dev/tpmrm0
+c2ddea12f977ea2c
+$ sudo cat /dev/tpm0
+cat: /dev/tpm0: Operation not permitted
+```
+
+With `-watch`, `tpmlsm` logs both attempts:
 
 ```
 $ sudo ./tpmlsm -watch
