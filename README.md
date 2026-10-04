@@ -129,7 +129,8 @@ changing the list means building and shipping a new `tpmlsm` and rebooting.
   `/etc/ld.so.preload`, or attach a debugger to a running allowed process. A
   statically linked binary, such as a Go program built with `CGO_ENABLED=0`,
   loads no shared libraries, so allow static binaries where you can. Setting
-  `kernel.yama.ptrace_scope=3` stops debuggers from attaching.
+  `kernel.yama.ptrace_scope=3` stops debuggers from attaching, for everyone
+  including root, until the next reboot.
 * An update to an allowed binary changes its hash, so it is denied until a
   `tpmlsm` with the new hash is deployed.
 * A process that was already running when `tpmlsm` loaded is denied until it
