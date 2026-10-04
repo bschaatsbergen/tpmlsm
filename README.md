@@ -69,7 +69,7 @@ If `bpf` is missing, append it to that list and pass it as `lsm=` on the kernel
 command line. On Ubuntu:
 
 ```
-echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT lsm=lockdown,capability,landlock,yama,apparmor,bpf ima_hash=sha256 ima_policy=tcb"' | sudo tee /etc/default/grub.d/99-tpmlsm.cfg
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT lsm=lockdown,capability,landlock,yama,apparmor,bpf ima_hash=sha256"' | sudo tee /etc/default/grub.d/99-tpmlsm.cfg
 sudo update-grub && sudo reboot
 ```
 
@@ -84,10 +84,19 @@ which is the default, IMA hashes the whole file on every exec and keeps
 nothing, so every program start on the machine pays for reading and hashing
 its binary, and larger binaries pay more.
 
-Boot with `ima_policy=tcb`, as in the command line above. IMA then keeps each
-hash until the file changes, so an unchanged binary is hashed once. The policy
-also measures files read by root, kernel modules and firmware into PCR 10, and
-its measurement list grows in kernel memory.
+Load a policy that measures executables, and IMA keeps each hash until the
+file changes, so an unchanged binary is hashed once. systemd loads
+`/etc/ima/ima-policy` at boot:
+
+```
+sudo mkdir -p /etc/ima
+echo 'measure func=BPRM_CHECK mask=MAY_EXEC' | sudo tee /etc/ima/ima-policy
+```
+
+The policy takes effect at the next boot; the kernel accepts one policy per
+boot. Prefer it over the built-in `ima_policy=tcb`, which also measures every
+file root reads, so a file that keeps changing, such as a log, is measured
+again after every change and the measurement list keeps growing.
 
 ### Allowlist
 
@@ -175,8 +184,7 @@ sudo systemctl daemon-reload
   included. Root can still remove the pins on bpffs, load a kernel module, or
   boot another kernel. Pair `tpmlsm` with Secure Boot and kernel lockdown (it
   loads under both `lockdown=integrity` and `lockdown=confidentiality`), and
-  use remote attestation of the IMA log (`ima_policy=tcb`, PCR 10) to check
-  that it loaded.
+  use remote attestation of the IMA log in PCR 10 to check that it loaded.
 
 ## Developing
 
