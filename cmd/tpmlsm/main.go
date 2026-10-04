@@ -47,7 +47,6 @@ func main() {
 		return
 	}
 
-	guard := flag.Bool("guard", false, "also deny detaching links and loading LSM programs through bpf()")
 	watch := flag.Bool("watch", true, "log allow and deny events until Ctrl-C; enforcement stays after exit")
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
@@ -59,12 +58,12 @@ func main() {
 		os.Exit(2)
 	}
 
-	if err := run(*guard, *watch); err != nil {
+	if err := run(*watch); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(guard, watch bool) error {
+func run(watch bool) error {
 	allowed, err := parseAllowlist(tpmlsm.Allowlist)
 	if err != nil {
 		return err
@@ -111,29 +110,18 @@ func run(guard, watch bool) error {
 		return err
 	}
 
-	progs := []struct {
-		name string
-		prog *ebpf.Program
-	}{
-		{"on_exec", objs.OnExec},
-		{"on_fork", objs.OnFork},
-		{"tpm_open", objs.TpmOpen},
+	progs := map[string]*ebpf.Program{
+		"on_exec":  objs.OnExec,
+		"on_fork":  objs.OnFork,
+		"tpm_open": objs.TpmOpen,
 	}
-	// The guard goes last so it never blocks the attaches before it.
-	if guard {
-		progs = append(progs, struct {
-			name string
-			prog *ebpf.Program
-		}{"guard_bpf", objs.GuardBpf})
-	}
-
 	if err := os.MkdirAll(pinDir, 0o700); err != nil {
 		return err
 	}
-	for _, p := range progs {
-		if err := attach(p.name, p.prog); err != nil {
+	for name, prog := range progs {
+		if err := attach(name, prog); err != nil {
 			os.RemoveAll(pinDir)
-			return fmt.Errorf("attach %s: %w", p.name, err)
+			return fmt.Errorf("attach %s: %w", name, err)
 		}
 	}
 	log.Printf("enforcing; pinned to %s, run 'tpmlsm unload' to remove", pinDir)

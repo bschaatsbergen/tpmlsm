@@ -85,8 +85,6 @@ Usage: tpmlsm [options]
        tpmlsm unload
 
 Options:
-  -guard
-    	also deny detaching links and loading LSM programs through bpf()
   -watch
     	log allow and deny events until Ctrl-C; enforcement stays after exit (default true)
 ```
@@ -104,10 +102,9 @@ Remove it with `sudo ./tpmlsm unload`, or reboot.
 * A process that was already running when `tpmlsm` loaded is denied until it
   is restarted, because its hash is only checked at exec.
 * The allowlist map is frozen, so it can't be changed from userspace, root
-  included. `-guard` additionally denies detaching the links through `bpf()`,
-  but root can still remove the pins with `rm` on bpffs, load a kernel module,
-  or boot another kernel. Pair it with Secure Boot and kernel lockdown, and
-  bind TPM keys to PCRs that measure the loader.
+  included. Root can still remove the pins on bpffs, load a kernel module, or
+  boot another kernel. Pair `tpmlsm` with Secure Boot and kernel lockdown, and
+  bind TPM keys to PCRs that measure it.
 
 ## Developing
 

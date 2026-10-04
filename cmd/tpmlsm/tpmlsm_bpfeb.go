@@ -35,7 +35,6 @@ const (
 	tpmlsmMapEvents        = "events"
 	tpmlsmMapTaskOk        = "task_ok"
 	tpmlsmMapTpmDevs       = "tpm_devs"
-	tpmlsmProgGuardBpf     = "guard_bpf"
 	tpmlsmProgOnExec       = "on_exec"
 	tpmlsmProgOnFork       = "on_fork"
 	tpmlsmProgTpmOpen      = "tpm_open"
@@ -84,10 +83,9 @@ type tpmlsmSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tpmlsmProgramSpecs struct {
-	GuardBpf *ebpf.ProgramSpec `ebpf:"guard_bpf"`
-	OnExec   *ebpf.ProgramSpec `ebpf:"on_exec"`
-	OnFork   *ebpf.ProgramSpec `ebpf:"on_fork"`
-	TpmOpen  *ebpf.ProgramSpec `ebpf:"tpm_open"`
+	OnExec  *ebpf.ProgramSpec `ebpf:"on_exec"`
+	OnFork  *ebpf.ProgramSpec `ebpf:"on_fork"`
+	TpmOpen *ebpf.ProgramSpec `ebpf:"tpm_open"`
 }
 
 // tpmlsmMapSpecs contains maps before they are loaded into the kernel.
@@ -153,15 +151,13 @@ type tpmlsmVariables struct {
 //
 // It can be passed to loadTpmlsmObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tpmlsmPrograms struct {
-	GuardBpf *ebpf.Program `ebpf:"guard_bpf"`
-	OnExec   *ebpf.Program `ebpf:"on_exec"`
-	OnFork   *ebpf.Program `ebpf:"on_fork"`
-	TpmOpen  *ebpf.Program `ebpf:"tpm_open"`
+	OnExec  *ebpf.Program `ebpf:"on_exec"`
+	OnFork  *ebpf.Program `ebpf:"on_fork"`
+	TpmOpen *ebpf.Program `ebpf:"tpm_open"`
 }
 
 func (p *tpmlsmPrograms) Close() error {
 	return _TpmlsmClose(
-		p.GuardBpf,
 		p.OnExec,
 		p.OnFork,
 		p.TpmOpen,

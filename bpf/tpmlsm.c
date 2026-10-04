@@ -109,19 +109,3 @@ int BPF_PROG(tpm_open, struct file *file, int ret)
     }
     return allow ? 0 : -EPERM;
 }
-
-// 4. Optional (-guard): deny detaching or replacing links and loading any new
-//    LSM program through bpf(). It does not see unlink() on bpffs, and it
-//    cannot stop a different kernel from booting.
-SEC("lsm/bpf")
-int BPF_PROG(guard_bpf, int cmd, union bpf_attr *attr, unsigned int size, int ret)
-{
-    if (ret)
-        return ret;
-    if (cmd == BPF_LINK_DETACH || cmd == BPF_LINK_UPDATE)
-        return -EPERM;
-    if (cmd == BPF_PROG_LOAD &&
-        BPF_CORE_READ(attr, prog_type) == BPF_PROG_TYPE_LSM)
-        return -EPERM;
-    return 0;
-}
