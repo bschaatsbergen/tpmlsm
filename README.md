@@ -69,13 +69,34 @@ If `bpf` is missing, append it to that list and pass it as `lsm=` on the kernel
 command line. On Ubuntu:
 
 ```
-echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT lsm=lockdown,capability,landlock,yama,apparmor,bpf ima_hash=sha256"' | sudo tee /etc/default/grub.d/99-tpmlsm.cfg
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT lsm=lockdown,capability,landlock,yama,apparmor,bpf ima_hash=sha256 ima_policy=tcb"' | sudo tee /etc/default/grub.d/99-tpmlsm.cfg
 sudo update-grub && sudo reboot
 ```
 
 `tpmlsm` refuses to start when BPF LSM is not active. IMA has to hash with
 SHA-256 (`ima_hash=sha256`, the default on Ubuntu); with any other algorithm
 every binary is denied.
+
+### IMA policy
+
+`tpmlsm` gets the SHA-256 of every binary that is executed from IMA. Without
+an IMA policy, which is the default, IMA hashes the whole file on every exec
+and keeps nothing, so every program start on the machine pays for reading and
+hashing its binary. Measured in a VM on an Apple Silicon Mac:
+
+|                         | without `tpmlsm` | with `tpmlsm`, no policy |
+| ----------------------- | ---------------- | ------------------------ |
+| exec of a 68 KB binary  | ~0.3 ms          | ~0.6-0.9 ms              |
+| exec of a 3.7 MB binary | ~1 ms            | ~17-19 ms                |
+| exec of a 100 MB binary | ~0.4 ms          | ~355-395 ms              |
+
+Opens of other files cost about 0.5 µs more.
+
+With `ima_policy=tcb`, as in the command line above, IMA measures executables
+and keeps each hash until the file changes, and the exec overhead was within
+noise. That policy also measures every file root reads, kernel modules and
+firmware into PCR 10, and its measurement list grows in kernel memory with
+every new file.
 
 ### Allowlist
 
