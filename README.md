@@ -38,8 +38,11 @@ $ sudo ./tpmlsm -watch
 2026/10/04 22:35:34 DENY  pid=1132 comm=cat dev=10:224
 ```
 
-It is a reference implementation, written alongside the blog post
-[A TPM bouncer in eBPF](https://bschaatsbergen.com/posts/a-tpm-bouncer-in-ebpf/).
+`tpmlsm` was prototyped during eBPF and vTPM work for a customer, where the TPM
+protects the private keys used for mTLS. This repository is a reference
+implementation, published alongside the blog post [A TPM bouncer in
+eBPF](https://bschaatsbergen.com/posts/a-tpm-bouncer-in-ebpf/); it is not the
+code that runs there.
 
 ## Running
 
