@@ -21,7 +21,7 @@ $ sudo cat /dev/tpm0
 cat: /dev/tpm0: Operation not permitted
 ```
 
-With `-watch`, `tpmlsm` logs both attempts:
+With `-watch`, `tpmlsm` stays in the foreground and logs both attempts:
 
 ```
 $ sudo ./tpmlsm -watch
@@ -85,7 +85,7 @@ make
 
 `tpmlsm` refuses to start with an empty or malformed allowlist. Run
 `sudo ./tpmlsm` at every boot, before anything that uses the TPM, and add
-`-watch` to keep it running and log every allowed and denied open.
+`-watch` to run it in the foreground and log every allowed and denied open.
 Enforcement lasts until the next reboot. There is no command to remove it, so
 changing the list means building and shipping a new `tpmlsm` and rebooting.
 

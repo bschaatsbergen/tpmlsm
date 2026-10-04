@@ -41,11 +41,12 @@ Usage:
   tpmlsm help      show this help
 
 Flags:
-  -watch           keep running and log every allowed and denied TPM open
+  -watch           stay in the foreground and log every allowed and denied
+                   TPM open
 `
 
 func main() {
-	watch := flag.Bool("watch", false, "keep running and log every allowed and denied TPM open")
+	watch := flag.Bool("watch", false, "stay in the foreground and log every allowed and denied TPM open")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), usage)
 	}
