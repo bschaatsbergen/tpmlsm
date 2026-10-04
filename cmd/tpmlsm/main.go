@@ -37,16 +37,19 @@ var tpmDevices = []string{"/dev/tpm0", "/dev/tpmrm0"}
 const usage = `eBPF-based Linux kernel guard that lets only allowlisted binaries use the TPM.
 
 Usage:
-  tpmlsm [flags]   load the allowlist and enforce it until the next reboot
-  tpmlsm help      show this help
+  sudo tpmlsm [-watch]
+  tpmlsm help
+
+tpmlsm loads its built-in allowlist into the kernel and exits. From then on
+only the listed binaries may open /dev/tpm0 and /dev/tpmrm0, until the next
+reboot. Changing the list means building a new tpmlsm.
 
 Flags:
-  -watch           stay in the foreground and log every allowed and denied
-                   TPM open
+  -watch   stay in the foreground and log each allowed and denied TPM open
 `
 
 func main() {
-	watch := flag.Bool("watch", false, "stay in the foreground and log every allowed and denied TPM open")
+	watch := flag.Bool("watch", false, "stay in the foreground and log each allowed and denied TPM open")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), usage)
 	}
