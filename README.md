@@ -115,8 +115,8 @@ list means building and shipping a new `tpmlsm`.
 
 ```
 $ ./tpmlsm help
-tpmlsm lets only the binaries in its compiled-in allowlist open the TPM,
-enforced in the kernel with BPF LSM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
+tpmlsm is an eBPF-based Linux kernel guard that lets only binaries in its
+compiled-in allowlist use the TPM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
 and stays until the next reboot.
 
 Usage:
