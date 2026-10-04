@@ -20,7 +20,7 @@ can't open the TPM device:
 
 ```
 $ sudo tpm2_getrandom --hex 8 -T device:/dev/tpmrm0
-c2ddea12f977ea2c
+05fad09798a92bca
 $ sudo cat /dev/tpm0
 cat: /dev/tpm0: Operation not permitted
 ```
@@ -29,11 +29,11 @@ With `-watch`, `tpmlsm` logs both attempts:
 
 ```
 $ sudo ./tpmlsm -watch
-2026/10/04 22:21:14 allow sha256=97e1fc0f22d92de63204eec74076a003d1ca820d1d6db3c8fde3227f1ca7f4fc /usr/bin/tpm2
-2026/10/04 22:21:15 enforcing; pinned to /sys/fs/bpf/tpmlsm, run 'tpmlsm unload' to remove
-2026/10/04 22:21:15 watching, Ctrl-C to stop (enforcement stays)
-2026/10/04 22:21:16 ALLOW pid=1648 comm=tpm2_getrandom dev=252:65536
-2026/10/04 22:21:16 DENY  pid=1650 comm=cat dev=10:224
+2026/10/04 22:35:32 allow sha256=97e1fc0f22d92de63204eec74076a003d1ca820d1d6db3c8fde3227f1ca7f4fc /usr/bin/tpm2
+2026/10/04 22:35:33 enforcing until reboot; pinned to /sys/fs/bpf/tpmlsm
+2026/10/04 22:35:33 watching, Ctrl-C to stop (enforcement stays)
+2026/10/04 22:35:34 ALLOW pid=1130 comm=tpm2_getrandom dev=252:65536
+2026/10/04 22:35:34 DENY  pid=1132 comm=cat dev=10:224
 ```
 
 It is a reference implementation, written alongside the blog post
@@ -96,11 +96,10 @@ list means building and shipping a new `tpmlsm`.
 $ ./tpmlsm help
 tpmlsm lets only the binaries in its compiled-in allowlist open the TPM,
 enforced in the kernel with BPF LSM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
-and stays after tpmlsm exits.
+and stays until the next reboot.
 
 Usage:
   tpmlsm [options]   load and enforce the allowlist
-  tpmlsm unload      remove enforcement
   tpmlsm help        show this help
 
 Options:
@@ -108,8 +107,10 @@ Options:
     	keep running and log allow and deny events until Ctrl-C
 ```
 
-Enforcement is pinned to `/sys/fs/bpf/tpmlsm` and stays after `tpmlsm` exits.
-Remove it with `sudo ./tpmlsm unload`, or reboot.
+Enforcement is pinned to `/sys/fs/bpf/tpmlsm` and stays until the next reboot.
+There is no command to remove it: changing the rules means building a new
+`tpmlsm` and rebooting. Running `tpmlsm` again while it is enforcing does
+nothing.
 
 ### Running as a service
 
@@ -123,8 +124,8 @@ sudo install -m 0644 contrib/systemd/tpmlsm.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now tpmlsm
 ```
 
-The unit runs `tpmlsm` once and stays active while enforcement is on;
-`systemctl stop tpmlsm` runs `tpmlsm unload`. A process that is already
+The unit runs `tpmlsm` once at boot. Stopping the unit doesn't remove
+enforcement; only a reboot does. A process that is already
 running when `tpmlsm` loads is denied until it restarts, so order services
 that use the TPM after it, with `After=tpmlsm.service` in their units.
 

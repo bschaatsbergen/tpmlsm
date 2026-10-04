@@ -34,11 +34,10 @@ var tpmDevices = []string{"/dev/tpm0", "/dev/tpmrm0"}
 
 const usage = `tpmlsm lets only the binaries in its compiled-in allowlist open the TPM,
 enforced in the kernel with BPF LSM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
-and stays after tpmlsm exits.
+and stays until the next reboot.
 
 Usage:
   tpmlsm [options]   load and enforce the allowlist
-  tpmlsm unload      remove enforcement
   tpmlsm help        show this help
 
 Options:
@@ -51,19 +50,10 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	if len(os.Args) == 2 {
-		switch os.Args[1] {
-		case "unload":
-			if err := os.RemoveAll(pinDir); err != nil {
-				log.Fatal(err)
-			}
-			log.Println("unloaded")
-			return
-		case "help":
-			flag.CommandLine.SetOutput(os.Stdout)
-			flag.Usage()
-			return
-		}
+	if len(os.Args) == 2 && os.Args[1] == "help" {
+		flag.CommandLine.SetOutput(os.Stdout)
+		flag.Usage()
+		return
 	}
 
 	flag.Parse()
@@ -88,8 +78,10 @@ func run(watch bool) error {
 	if err := checkBPFLSM(); err != nil {
 		return err
 	}
+	// Enforcement only ends with a reboot, so a second load is a no-op.
 	if _, err := os.Stat(pinDir); err == nil {
-		return fmt.Errorf("%s exists; run 'tpmlsm unload' first", pinDir)
+		log.Printf("already enforcing (%s exists); reboot to load a different build", pinDir)
+		return nil
 	}
 
 	var objs tpmlsmObjects
@@ -138,7 +130,7 @@ func run(watch bool) error {
 			return fmt.Errorf("attach %s: %w", name, err)
 		}
 	}
-	log.Printf("enforcing; pinned to %s, run 'tpmlsm unload' to remove", pinDir)
+	log.Printf("enforcing until reboot; pinned to %s", pinDir)
 
 	if !watch {
 		return nil
