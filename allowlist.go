@@ -1,10 +1,10 @@
-// Package tpmlsm holds the allowlist that gets compiled into the tpmlsm binary.
+// Package tpmlsm embeds the allowlist that the tpmlsm command enforces.
 package tpmlsm
 
 import _ "embed"
 
-// Allowlist is the contents of allowlist.txt at build time: one sha256sum line
-// per allowed binary. Changing it means rebuilding tpmlsm.
+// Allowlist is allowlist.txt as of build time. The policy is part of the
+// binary, so changing it requires a rebuild.
 //
 //go:embed allowlist.txt
 var Allowlist []byte

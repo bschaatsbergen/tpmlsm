@@ -30,9 +30,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// pinDir is where the programs are pinned, so they stay attached after tpmlsm
-// exits. It lives on bpffs, which is in memory, so a reboot clears it and ends
-// enforcement.
+// pinDir is where the LSM links are pinned. The pins keep the programs attached
+// after tpmlsm exits; bpffs is memory-backed, so a reboot removes them.
 const pinDir = "/sys/fs/bpf/tpmlsm"
 
 var tpmDevices = []string{"/dev/tpm0", "/dev/tpmrm0"}
@@ -85,8 +84,7 @@ func run(watch bool) error {
 	if err := checkBPFLSM(); err != nil {
 		return err
 	}
-	// Only a reboot ends enforcement, so if tpmlsm is already loaded there's
-	// nothing left to do.
+	// An existing pin directory means tpmlsm is already enforcing.
 	if _, err := os.Stat(pinDir); err == nil {
 		log.Printf("already enforcing (%s exists); reboot to load a different build", pinDir)
 		return nil
@@ -112,7 +110,8 @@ func run(watch bool) error {
 		if err := objs.AllowedHashes.Put(a.sum, uint8(1)); err != nil {
 			return err
 		}
-		// Exec only hashes the files listed here.
+		// on_exec only hashes files whose (dev, ino) is in allowed_files. A path
+		// that doesn't exist is skipped: its hash can never match.
 		var st unix.Stat_t
 		if err := unix.Stat(a.name, &st); err != nil {
 			log.Printf("skip sha256=%x %s: %v", a.sum, a.name, err)
@@ -125,8 +124,8 @@ func run(watch bool) error {
 		log.Printf("allow sha256=%x %s", a.sum, a.name)
 	}
 
-	// Lock the maps before attaching. After this nobody outside the kernel can
-	// change them, root included. The BPF programs can still read them.
+	// Freeze before attaching. A frozen map rejects updates from userspace, root
+	// included, while the BPF programs can still read it.
 	if err := objs.AllowedHashes.Freeze(); err != nil {
 		return err
 	}
@@ -159,8 +158,8 @@ func run(watch bool) error {
 	return watchEvents(objs.Events)
 }
 
-// attach hooks prog into the kernel and pins it, so it stays attached after
-// tpmlsm exits.
+// attach attaches prog as an LSM program and pins its link under pinDir.
+// Closing our link fd is fine; the pin keeps the link alive.
 func attach(name string, prog *ebpf.Program) error {
 	l, err := link.AttachLSM(link.LSMOptions{Program: prog})
 	if err != nil {
@@ -170,8 +169,8 @@ func attach(name string, prog *ebpf.Program) error {
 	return l.Pin(filepath.Join(pinDir, name))
 }
 
-// checkBPFLSM fails when BPF LSM isn't switched on. The programs would still
-// attach without an error, but the kernel would never run them.
+// checkBPFLSM returns an error unless the BPF LSM is active. Without it, LSM
+// programs attach successfully but are never invoked.
 func checkBPFLSM() error {
 	b, err := os.ReadFile("/sys/kernel/security/lsm")
 	if err != nil {
@@ -184,16 +183,15 @@ func checkBPFLSM() error {
 	return fmt.Errorf("BPF LSM is not enabled (active: %s); add bpf to lsm= on the kernel command line", lsms)
 }
 
-// fileID has the same layout as struct file_id in bpf/tpmlsm.c.
+// fileID mirrors struct file_id in bpf/tpmlsm.c; the layouts must match.
 type fileID struct {
 	Ino uint64
 	Dev uint32
 	_   uint32
 }
 
-// kdev converts a device number from the way stat packs it to the way the
-// kernel does, major<<20 | minor. The BPF programs compare against the
-// kernel's version, so the number from stat would never match.
+// kdev converts a userspace dev_t, as returned by stat, to the kernel's
+// internal encoding (major<<20 | minor), which is what i_rdev and s_dev hold.
 func kdev(dev uint64) uint32 {
 	return unix.Major(dev)<<20 | unix.Minor(dev)
 }

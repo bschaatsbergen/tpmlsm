@@ -13,10 +13,9 @@ type allowed struct {
 	name string
 }
 
-// parseAllowlist reads one entry per line, in the format sha256sum prints: the
-// hex SHA-256, then the file's path. Blank lines and # comments are skipped. A
-// malformed line is an error, so a typo can't quietly drop a binary from the
-// list.
+// parseAllowlist parses sha256sum output: a hex SHA-256 digest and a path per
+// line. Blank lines and # comments are ignored. A malformed line is an error
+// rather than a skipped entry, so a typo can't silently shrink the list.
 func parseAllowlist(data []byte) ([]allowed, error) {
 	var out []allowed
 	sc := bufio.NewScanner(bytes.NewReader(data))

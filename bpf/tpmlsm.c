@@ -11,8 +11,8 @@ char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 struct digest { u8 b[32]; };
 
-// The SHA-256 of every allowed binary. The loader fills this in and then
-// locks it.
+// allowed_hashes holds the SHA-256 digests from the compiled-in allowlist.
+// The loader fills it before attaching and then freezes it.
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 64);
@@ -20,9 +20,9 @@ struct {
     __type(value, u8);
 } allowed_hashes SEC(".maps");
 
-// The allowed files themselves, by device and inode number. Exec looks here
-// first, so it only has to hash files that are on the list. Also filled in by
-// the loader and then locked.
+// allowed_files holds the (dev, ino) of every allowlisted path. on_exec checks
+// it before hashing, so only allowlisted files pay for bpf_ima_file_hash.
+// Filled by the loader, then frozen.
 struct file_id {
     u64 ino;
     u32 dev;
@@ -36,8 +36,8 @@ struct {
     __type(value, u8);
 } allowed_files SEC(".maps");
 
-// The device numbers of /dev/tpm0 and /dev/tpmrm0. Filled in by the loader
-// and then locked.
+// tpm_devs holds the kernel dev_t of /dev/tpm0 and /dev/tpmrm0. Filled by the
+// loader, then frozen.
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 8);
@@ -45,8 +45,8 @@ struct {
     __type(value, u8);
 } tpm_devs SEC(".maps");
 
-// For each process: may it use the TPM? 1 for yes, 0 for no. A process
-// without an entry counts as no.
+// task_ok is the per-task verdict: 1 if the task may open the TPM. A task
+// without storage is denied.
 struct {
     __uint(type, BPF_MAP_TYPE_TASK_STORAGE);
     __uint(map_flags, BPF_F_NO_PREALLOC);
@@ -60,7 +60,7 @@ struct event {
     u8  comm[16];
     u8  allowed;
 };
-// Makes bpf2go generate a Go type for struct event.
+// Referenced so that bpf2go emits a Go type for struct event.
 const struct event *unused __attribute__((unused));
 
 struct {
@@ -68,9 +68,12 @@ struct {
     __uint(max_entries, 1 << 16);
 } events SEC(".maps");
 
-// 1. Exec. When a process starts a program from one of the listed files, hash
-//    the file and remember whether it matched. Any other program costs just
-//    one map lookup.
+// on_exec sets the verdict for the new program image. Non-allowlisted files
+// cost one map lookup; allowlisted ones must also match on their IMA hash.
+//
+// bprm_committed_creds runs past the point of no return in begin_new_exec, so
+// a failed exec can't leave a stale verdict behind. The program is sleepable
+// (lsm.s) because bpf_ima_file_hash may sleep.
 SEC("lsm.s/bprm_committed_creds")
 int BPF_PROG(on_exec, struct linux_binprm *bprm)
 {
@@ -82,8 +85,7 @@ int BPF_PROG(on_exec, struct linux_binprm *bprm)
     };
 
     if (!bpf_map_lookup_elem(&allowed_files, &id)) {
-        // Not on the list. If the parent was allowed, this process isn't
-        // anymore.
+        // Not allowlisted: revoke any verdict inherited from the parent.
         u8 *ok = bpf_task_storage_get(&task_ok, task, 0, 0);
         if (ok)
             *ok = 0;
@@ -98,13 +100,15 @@ int BPF_PROG(on_exec, struct linux_binprm *bprm)
     if (!ok)
         return 0;
 
-    // Only a SHA-256 that is on the list counts.
+    // Accept SHA-256 only; IMA may be configured with another algorithm.
     *ok = (algo == HASH_ALGO_SHA256 &&
            bpf_map_lookup_elem(&allowed_hashes, &h)) ? 1 : 0;
     return 0;
 }
 
-// 2. Fork and new threads. The child gets a yes if its parent had one.
+// on_fork copies an allow verdict to new tasks, which start with empty task
+// storage. Threads need it too: the Go runtime, for one, opens files from
+// whichever OS thread it picks.
 SEC("lsm/task_alloc")
 int BPF_PROG(on_fork, struct task_struct *task, unsigned long clone_flags, int ret)
 {
@@ -122,15 +126,16 @@ int BPF_PROG(on_fork, struct task_struct *task, unsigned long clone_flags, int r
     return 0;
 }
 
-// 3. Open. Only processes with a yes may open the TPM.
+// tpm_open denies opens of the TPM devices by tasks without an allow verdict,
+// and reports every attempt on the events ring buffer.
 SEC("lsm/file_open")
 int BPF_PROG(tpm_open, struct file *file, int ret)
 {
     if (ret)
         return ret;
 
-    // Read the field directly. BPF_CORE_READ would go through bpf_probe_read,
-    // and lockdown=confidentiality doesn't allow that.
+    // Direct read rather than BPF_CORE_READ, which uses bpf_probe_read and is
+    // rejected under lockdown=confidentiality.
     u32 dev = file->f_inode->i_rdev;
     if (!bpf_map_lookup_elem(&tpm_devs, &dev))
         return 0;
