@@ -21,7 +21,8 @@ $ sudo cat /dev/tpm0
 cat: /dev/tpm0: Operation not permitted
 ```
 
-With `-watch`, `tpmlsm` stays in the foreground and logs both attempts:
+With `-watch`, `tpmlsm` stays in the foreground and logs every attempt to open
+the TPM, here the allowed `tpm2_getrandom` and the refused `cat`:
 
 ```
 $ sudo ./tpmlsm -watch
