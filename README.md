@@ -133,33 +133,6 @@ There is no command to remove it: changing the rules means building a new
 `tpmlsm` and rebooting. Running `tpmlsm` again while it is enforcing does
 nothing.
 
-### Running as a service
-
-`tpmlsm` runs on any Linux machine that meets the requirements above and has a
-TPM at `/dev/tpm0` and `/dev/tpmrm0`. To load it at boot, install the binary
-and the systemd unit from `contrib/systemd`, then enable it:
-
-```
-sudo install -m 0755 tpmlsm /usr/local/bin/tpmlsm
-sudo install -m 0644 contrib/systemd/tpmlsm.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now tpmlsm
-```
-
-The unit runs `tpmlsm` once at boot. Stopping the unit doesn't remove
-enforcement; only a reboot does. A process that is already
-running when `tpmlsm` loads is denied until it restarts, so order services
-that use the TPM after it, with `After=tpmlsm.service` in their units.
-
-If a service creates the TPM device instead of the kernel, such as
-[swtpm](https://github.com/stefanberger/swtpm) in a VM, order `tpmlsm` after
-it with a drop-in:
-
-```
-sudo mkdir -p /etc/systemd/system/tpmlsm.service.d
-printf '[Unit]\nAfter=swtpm.service\nRequires=swtpm.service\n' | sudo tee /etc/systemd/system/tpmlsm.service.d/swtpm.conf
-sudo systemctl daemon-reload
-```
-
 ### Limitations
 
 * An entry allows a binary, and with it everything that binary can be made
