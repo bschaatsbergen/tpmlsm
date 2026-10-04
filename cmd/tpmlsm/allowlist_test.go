@@ -8,7 +8,7 @@ func TestParseAllowlist(t *testing.T) {
 	tests := []struct {
 		name    string
 		in      string
-		want    []string // names, in order
+		want    []string // expected paths, in order
 		wantErr bool
 	}{
 		{name: "empty", in: "", want: nil},

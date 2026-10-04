@@ -2,21 +2,17 @@
 
 ![logo](logo.png "Bouncer Gopher checks every binary against the TPM list")
 
-`tpmlsm` is an [eBPF](https://ebpf.io)-based Linux kernel guard that lets only
-allowlisted binaries use the TPM. A binary is identified by its file and the
-SHA-256 of that file, not by its PID or name, so a modified binary or a copy
-elsewhere is denied. Root is no exception.
+`tpmlsm` decides which programs may open the TPM on a Linux machine. You give
+it a list of binaries, it compiles that list in, and from then on the kernel
+refuses every other program that tries to open `/dev/tpm0` or `/dev/tpmrm0`,
+including programs running as root.
 
-The allowed hashes are compiled into the `tpmlsm` binary. Build it from the
-same release as the binaries it allows, and anything deployed outside that
-release is denied.
+It's built on [eBPF](https://ebpf.io) and BPF LSM. A binary is on the list by
+its path and the SHA-256 of its contents, so changing the file, or copying it
+somewhere else, takes it off the list.
 
-`tpmlsm` only checks opens of `/dev/tpm0` and `/dev/tpmrm0`. Every other file,
-and every program that doesn't touch the TPM, works as before.
-
-The following example has the hash of `tpm2_getrandom` compiled in. Run as
-root, `tpm2_getrandom` can still read random bytes from the TPM, but `cat`
-can't open the TPM device:
+Here `tpm2_getrandom` is on the list. Run as root, it can still read random
+bytes from the TPM, but `cat` can't open the TPM device:
 
 ```
 $ sudo tpm2_getrandom --hex 8 -T device:/dev/tpmrm0
