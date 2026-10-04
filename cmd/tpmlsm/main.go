@@ -47,7 +47,7 @@ func main() {
 		return
 	}
 
-	watch := flag.Bool("watch", true, "log allow and deny events until Ctrl-C; enforcement stays after exit")
+	watch := flag.Bool("watch", false, "keep running and log allow and deny events until Ctrl-C")
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
 		flag.PrintDefaults()

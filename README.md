@@ -15,12 +15,12 @@ The following example allows `tpm2_getrandom`, after which root can still read
 random bytes from the TPM but `cat` is denied:
 
 ```
-$ sudo ./tpmlsm
-2026/10/04 22:13:06 allow sha256=97e1fc0f22d92de63204eec74076a003d1ca820d1d6db3c8fde3227f1ca7f4fc /usr/bin/tpm2
-2026/10/04 22:13:06 enforcing; pinned to /sys/fs/bpf/tpmlsm, run 'tpmlsm unload' to remove
-2026/10/04 22:13:06 watching, Ctrl-C to stop (enforcement stays)
-2026/10/04 22:13:08 ALLOW pid=2026 comm=tpm2_getrandom dev=252:65536
-2026/10/04 22:13:08 DENY  pid=2028 comm=cat dev=10:224
+$ sudo ./tpmlsm -watch
+2026/10/04 22:21:14 allow sha256=97e1fc0f22d92de63204eec74076a003d1ca820d1d6db3c8fde3227f1ca7f4fc /usr/bin/tpm2
+2026/10/04 22:21:15 enforcing; pinned to /sys/fs/bpf/tpmlsm, run 'tpmlsm unload' to remove
+2026/10/04 22:21:15 watching, Ctrl-C to stop (enforcement stays)
+2026/10/04 22:21:16 ALLOW pid=1648 comm=tpm2_getrandom dev=252:65536
+2026/10/04 22:21:16 DENY  pid=1650 comm=cat dev=10:224
 ```
 
 It is a reference implementation, written alongside the blog post
@@ -86,7 +86,7 @@ Usage: tpmlsm [options]
 
 Options:
   -watch
-    	log allow and deny events until Ctrl-C; enforcement stays after exit (default true)
+    	keep running and log allow and deny events until Ctrl-C
 ```
 
 Enforcement is pinned to `/sys/fs/bpf/tpmlsm` and stays after `tpmlsm` exits.
