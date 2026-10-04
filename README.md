@@ -79,24 +79,15 @@ every binary is denied.
 
 ### IMA policy
 
-`tpmlsm` gets the SHA-256 of every binary that is executed from IMA. Without
-an IMA policy, which is the default, IMA hashes the whole file on every exec
-and keeps nothing, so every program start on the machine pays for reading and
-hashing its binary. Measured in a VM on an Apple Silicon Mac:
+`tpmlsm` gets each binary's SHA-256 from IMA at exec. Without an IMA policy,
+which is the default, IMA hashes the whole file on every exec and keeps
+nothing, so every program start on the machine pays for reading and hashing
+its binary, and larger binaries pay more.
 
-|                         | without `tpmlsm` | with `tpmlsm`, no policy |
-| ----------------------- | ---------------- | ------------------------ |
-| exec of a 68 KB binary  | ~0.3 ms          | ~0.6-0.9 ms              |
-| exec of a 3.7 MB binary | ~1 ms            | ~17-19 ms                |
-| exec of a 100 MB binary | ~0.4 ms          | ~355-395 ms              |
-
-Opens of other files cost about 0.5 µs more.
-
-With `ima_policy=tcb`, as in the command line above, IMA measures executables
-and keeps each hash until the file changes, and the exec overhead was within
-noise. That policy also measures every file root reads, kernel modules and
-firmware into PCR 10, and its measurement list grows in kernel memory with
-every new file.
+Boot with `ima_policy=tcb`, as in the command line above. IMA then keeps each
+hash until the file changes, so an unchanged binary is hashed once. The policy
+also measures files read by root, kernel modules and firmware into PCR 10, and
+its measurement list grows in kernel memory.
 
 ### Allowlist
 
