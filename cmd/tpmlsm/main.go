@@ -3,11 +3,6 @@
 // refuses every other program that tries to open /dev/tpm0 or /dev/tpmrm0, also
 // when it runs as root.
 //
-// Like AppArmor or SELinux, it's enforced by the kernel it runs in, so someone
-// with full control of the machine can still remove it or get around it. Secure
-// Boot and kernel lockdown make that harder, and attestation can show whether
-// it loaded at boot.
-//
 // It's built on eBPF and BPF LSM. A binary is on the list by its path and the
 // SHA-256 of its contents, so changing the file, or copying it somewhere else,
 // takes it off the list.
