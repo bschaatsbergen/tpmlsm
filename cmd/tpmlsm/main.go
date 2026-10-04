@@ -91,11 +91,11 @@ func run(watch bool) error {
 	defer objs.Close()
 
 	for _, p := range tpmDevices {
-		dev, err := kdev(p)
-		if err != nil {
+		var st unix.Stat_t
+		if err := unix.Stat(p, &st); err != nil {
 			return err
 		}
-		if err := objs.TpmDevs.Put(dev, uint8(1)); err != nil {
+		if err := objs.TpmDevs.Put(kdev(uint64(st.Rdev)), uint8(1)); err != nil {
 			return err
 		}
 	}
@@ -104,12 +104,25 @@ func run(watch bool) error {
 		if err := objs.AllowedHashes.Put(a.sum, uint8(1)); err != nil {
 			return err
 		}
+		// Exec only hashes files whose inode is in allowed_files.
+		var st unix.Stat_t
+		if err := unix.Stat(a.name, &st); err != nil {
+			log.Printf("skip sha256=%x %s: %v", a.sum, a.name, err)
+			continue
+		}
+		id := fileID{Ino: st.Ino, Dev: kdev(uint64(st.Dev))}
+		if err := objs.AllowedFiles.Put(id, uint8(1)); err != nil {
+			return err
+		}
 		log.Printf("allow sha256=%x %s", a.sum, a.name)
 	}
 
 	// Populate, then freeze, then attach. A frozen map can't be written from
 	// userspace, root included; the BPF programs can still read it.
 	if err := objs.AllowedHashes.Freeze(); err != nil {
+		return err
+	}
+	if err := objs.AllowedFiles.Freeze(); err != nil {
 		return err
 	}
 	if err := objs.TpmDevs.Freeze(); err != nil {
@@ -163,15 +176,18 @@ func checkBPFLSM() error {
 	return fmt.Errorf("BPF LSM is not enabled (active: %s); add bpf to lsm= on the kernel command line", lsms)
 }
 
-// kdev returns the device number of path in the kernel's encoding,
-// major<<20 | minor. stat's st_rdev uses a different encoding and would
-// never match i_rdev in the BPF program.
-func kdev(path string) (uint32, error) {
-	var st unix.Stat_t
-	if err := unix.Stat(path, &st); err != nil {
-		return 0, err
-	}
-	return unix.Major(uint64(st.Rdev))<<20 | unix.Minor(uint64(st.Rdev)), nil
+// fileID matches struct file_id in bpf/tpmlsm.c.
+type fileID struct {
+	Ino uint64
+	Dev uint32
+	_   uint32
+}
+
+// kdev converts a device number from stat's encoding to the kernel's,
+// major<<20 | minor. The BPF programs compare against the kernel's, so a
+// value straight from stat would never match.
+func kdev(dev uint64) uint32 {
+	return unix.Major(dev)<<20 | unix.Minor(dev)
 }
 
 func watchEvents(m *ebpf.Map) error {

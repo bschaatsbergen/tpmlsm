@@ -27,10 +27,18 @@ type tpmlsmEvent struct {
 	_       [3]byte
 }
 
+type tpmlsmFileId struct {
+	_   structs.HostLayout
+	Ino uint64
+	Dev uint32
+	Pad uint32
+}
+
 // Names of all BPF objects in the ELF.
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	tpmlsmMapAllowedFiles  = "allowed_files"
 	tpmlsmMapAllowedHashes = "allowed_hashes"
 	tpmlsmMapEvents        = "events"
 	tpmlsmMapTaskOk        = "task_ok"
@@ -92,6 +100,7 @@ type tpmlsmProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type tpmlsmMapSpecs struct {
+	AllowedFiles  *ebpf.MapSpec `ebpf:"allowed_files"`
 	AllowedHashes *ebpf.MapSpec `ebpf:"allowed_hashes"`
 	Events        *ebpf.MapSpec `ebpf:"events"`
 	TaskOk        *ebpf.MapSpec `ebpf:"task_ok"`
@@ -125,6 +134,7 @@ func (o *tpmlsmObjects) Close() error {
 //
 // It can be passed to loadTpmlsmObjects or ebpf.CollectionSpec.LoadAndAssign.
 type tpmlsmMaps struct {
+	AllowedFiles  *ebpf.Map `ebpf:"allowed_files"`
 	AllowedHashes *ebpf.Map `ebpf:"allowed_hashes"`
 	Events        *ebpf.Map `ebpf:"events"`
 	TaskOk        *ebpf.Map `ebpf:"task_ok"`
@@ -133,6 +143,7 @@ type tpmlsmMaps struct {
 
 func (m *tpmlsmMaps) Close() error {
 	return _TpmlsmClose(
+		m.AllowedFiles,
 		m.AllowedHashes,
 		m.Events,
 		m.TaskOk,

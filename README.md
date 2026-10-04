@@ -3,9 +3,9 @@
 ![logo](logo.png "Bouncer Gopher checks every binary against the TPM list")
 
 `tpmlsm` is an [eBPF](https://ebpf.io)-based Linux kernel guard that lets only
-allowlisted binaries use the TPM. A binary is identified by the SHA-256 of its
-file, not by its PID, name or path, so a renamed copy is allowed and a modified
-one is denied. Root is no exception.
+allowlisted binaries use the TPM. A binary is identified by its file and the
+SHA-256 of that file, not by its PID or name, so a modified binary or a copy
+elsewhere is denied. Root is no exception.
 
 The allowed hashes are compiled into the `tpmlsm` binary. Build it from the
 same release as the binaries it allows, and anything deployed outside that
@@ -79,29 +79,19 @@ every binary is denied.
 
 ### IMA policy
 
-`tpmlsm` gets each binary's SHA-256 from IMA at exec. Without an IMA policy,
-which is the default, IMA hashes the whole file on every exec and keeps
-nothing, so every program start on the machine pays for reading and hashing
-its binary, and larger binaries pay more.
-
-Load a policy that measures executables, and IMA keeps each hash until the
-file changes, so an unchanged binary is hashed once. systemd loads
-`/etc/ima/ima-policy` at boot:
-
-```
-sudo mkdir -p /etc/ima
-echo 'measure func=BPRM_CHECK mask=MAY_EXEC' | sudo tee /etc/ima/ima-policy
-```
-
-The policy takes effect at the next boot; the kernel accepts one policy per
-boot. Prefer it over the built-in `ima_policy=tcb`, which also measures every
-file root reads, so a file that keeps changing, such as a log, is measured
-again after every change and the measurement list keeps growing.
+None is needed. At exec, `tpmlsm` only hashes the files on the allowlist; any
+other program costs one map lookup. Without an IMA policy an allowed binary is
+hashed on every exec. A policy that measures executables
+(`measure func=BPRM_CHECK mask=MAY_EXEC` in `/etc/ima/ima-policy`, which
+systemd loads at boot) lets IMA keep those hashes, but also makes IMA measure
+every program the machine runs, once each. Avoid the built-in
+`ima_policy=tcb`, which also measures every file root reads, so a file that
+keeps changing, such as a log, is measured again after every change.
 
 ### Allowlist
 
-Add the SHA-256 of every binary that may open the TPM to `allowlist.txt`, one
-per line (`sha256sum` output works as is), and rebuild:
+Add every binary that may open the TPM to `allowlist.txt` as `sha256sum`
+prints it, the SHA-256 followed by the file's real path, and rebuild:
 
 ```
 sha256sum "$(readlink -f /usr/bin/tpm2_getrandom)" >> allowlist.txt
@@ -131,6 +121,10 @@ changing the list means building and shipping a new `tpmlsm` and rebooting.
   loads no shared libraries, so allow static binaries where you can. Setting
   `kernel.yama.ptrace_scope=3` stops debuggers from attaching, for everyone
   including root, until the next reboot.
+* Only the listed files are checked, matched by device and inode. That needs
+  the device number `stat` reports to agree with the kernel's, which holds on
+  ext4 (tested). btrfs reports a separate device number per subvolume, so
+  there nothing matches and every open of the TPM is denied.
 * An update to an allowed binary changes its hash, so it is denied until a
   `tpmlsm` with the new hash is deployed.
 * A process that was already running when `tpmlsm` loaded is denied until it

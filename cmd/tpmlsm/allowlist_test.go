@@ -13,7 +13,7 @@ func TestParseAllowlist(t *testing.T) {
 	}{
 		{name: "empty", in: "", want: nil},
 		{name: "comments only", in: "# nothing\n\n", want: nil},
-		{name: "bare digest", in: sum + "\n", want: []string{""}},
+		{name: "bare digest", in: sum + "\n", wantErr: true},
 		{name: "sha256sum format", in: sum + "  /usr/bin/tpm2\n", want: []string{"/usr/bin/tpm2"}},
 		{name: "short digest", in: "abcd\n", wantErr: true},
 		{name: "not hex", in: "zz" + sum[2:] + "\n", wantErr: true},

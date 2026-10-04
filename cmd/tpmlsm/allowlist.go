@@ -13,8 +13,8 @@ type allowed struct {
 	name string
 }
 
-// parseAllowlist reads one hex SHA-256 per line, optionally followed by a
-// name, which is what sha256sum prints. Blank lines and # comments are
+// parseAllowlist reads one hex SHA-256 per line followed by the file's path,
+// which is what sha256sum prints. Blank lines and # comments are
 // skipped. Any malformed line is an error, so a typo can't silently drop a
 // binary from the list.
 func parseAllowlist(data []byte) ([]allowed, error) {
@@ -34,6 +34,9 @@ func parseAllowlist(data []byte) ([]allowed, error) {
 			return nil, fmt.Errorf("allowlist: bad digest %q: %w", hexsum, err)
 		}
 		a.name = strings.TrimSpace(name)
+		if a.name == "" {
+			return nil, fmt.Errorf("allowlist: digest %s has no path; use sha256sum output", hexsum)
+		}
 		out = append(out, a)
 	}
 	return out, sc.Err()

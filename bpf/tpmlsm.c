@@ -19,6 +19,21 @@ struct {
     __type(value, u8);
 } allowed_hashes SEC(".maps");
 
+// Inodes of the allowlisted files, so exec only hashes those. Filled from Go,
+// then frozen.
+struct file_id {
+    u64 ino;
+    u32 dev;
+    u32 pad;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 64);
+    __type(key, struct file_id);
+    __type(value, u8);
+} allowed_files SEC(".maps");
+
 // Which devices count as "the TPM". Filled from Go, then frozen.
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -48,14 +63,30 @@ struct {
     __uint(max_entries, 1 << 16);
 } events SEC(".maps");
 
-// 1. At exec: hash the new binary, set or clear the answer.
+// 1. At exec: if the new binary is one of the allowlisted files, hash it and
+//    set the answer. Any other binary only costs a map lookup.
 SEC("lsm.s/bprm_committed_creds")
 int BPF_PROG(on_exec, struct linux_binprm *bprm)
 {
+    struct task_struct *task = bpf_get_current_task_btf();
+    struct inode *inode = bprm->file->f_inode;
+    struct file_id id = {
+        .ino = inode->i_ino,
+        .dev = inode->i_sb->s_dev,
+    };
+
+    if (!bpf_map_lookup_elem(&allowed_files, &id)) {
+        // Not a candidate: clear an answer inherited from the parent.
+        u8 *ok = bpf_task_storage_get(&task_ok, task, 0, 0);
+        if (ok)
+            *ok = 0;
+        return 0;
+    }
+
     struct digest h = {};
     long algo = bpf_ima_file_hash(bprm->file, h.b, sizeof(h.b));
 
-    u8 *ok = bpf_task_storage_get(&task_ok, bpf_get_current_task_btf(), 0,
+    u8 *ok = bpf_task_storage_get(&task_ok, task, 0,
                                   BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!ok)
         return 0;
