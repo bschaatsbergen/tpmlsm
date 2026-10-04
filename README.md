@@ -112,8 +112,8 @@ Limitations.
   module or booting another kernel. Secure Boot and kernel lockdown (both modes
   work) make that harder. More hooks that refuse to delete the pins, unmount
   bpffs or detach the programs would close the rest while the machine runs,
-  leaving a reboot as the only way. Attestation can then show a verifier whether
-  `tpmlsm` loaded again after the reboot.
+  leaving a reboot as the only way. That's what you should add to properly
+  harden it.
 
 ## Developing
 
