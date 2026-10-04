@@ -1,7 +1,8 @@
-// Command tpmlsm restricts which binaries may open the TPM, enforced in the
-// kernel with BPF LSM. A binary is allowed by the SHA-256 of its file, so a
-// renamed copy is allowed and a modified one is not, root included. The
-// allowed hashes are compiled in from allowlist.txt.
+// Command tpmlsm makes sure only the binaries on its allowlist can open the
+// TPM, enforced in the kernel with BPF LSM. A binary counts as allowed when its
+// file is on the list and the file's SHA-256 matches, so a changed binary or a
+// copy somewhere else is turned away, root included. The list is compiled in
+// from allowlist.txt.
 package main
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type event tpmlsm ../../bpf/tpmlsm.c
