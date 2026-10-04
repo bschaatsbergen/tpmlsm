@@ -1,5 +1,5 @@
 GO      ?= go
-GOOS    ?= linux
+GOOS    ?= $(shell $(GO) env GOOS)
 GOARCH  ?= $(shell $(GO) env GOARCH)
 BIN     ?= tpmlsm
 GO_LDFLAGS ?= -s -w
@@ -11,7 +11,7 @@ GO_LDFLAGS ?= -s -w
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build tpmlsm for Linux (override GOOS/GOARCH to cross-compile)
+build: ## Build tpmlsm for this machine (set GOOS/GOARCH to cross-compile)
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) build -trimpath -ldflags "$(GO_LDFLAGS)" -o $(BIN) ./cmd/tpmlsm
 
 generate: bpf/vmlinux.h ## Regenerate the BPF objects (Linux only: clang, libbpf, bpftool)
@@ -20,10 +20,10 @@ generate: bpf/vmlinux.h ## Regenerate the BPF objects (Linux only: clang, libbpf
 bpf/vmlinux.h:
 	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $@
 
-test: ## Run the unit tests
-	$(GO) test ./...
+test: ## Run the unit tests on this machine
+	GOOS= GOARCH= $(GO) test ./...
 
-vet: ## Run go vet against the Linux build
+vet: ## Run go vet
 	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO) vet ./...
 
 check: vet test ## Run vet and tests, and fail on unformatted Go files

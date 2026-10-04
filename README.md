@@ -142,8 +142,9 @@ make
 ```
 
 The generated BPF objects in `cmd/tpmlsm` are checked in, so `make` only needs
-Go and works on macOS too (it builds for Linux). To regenerate them after
-changing `bpf/tpmlsm.c`, on Linux:
+Go. It builds for the machine you're on; from macOS, `make GOOS=linux` builds
+the Linux binary. To regenerate the objects after changing `bpf/tpmlsm.c`, on
+Linux:
 
 ```
 make generate
