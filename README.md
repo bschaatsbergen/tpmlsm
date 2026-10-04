@@ -2,10 +2,14 @@
 
 ![logo](logo.png "Bouncer Gopher checks every binary against the TPM list")
 
-`tpmlsm` decides which programs may open the TPM on a Linux machine. You give
-it a list of binaries, it compiles that list in, and from then on the kernel
+`tpmlsm` decides which programs may open the TPM on a Linux machine. You give it
+a list of binaries, it compiles that list in, and from then on the kernel
 refuses every other program that tries to open `/dev/tpm0` or `/dev/tpmrm0`,
-including programs running as root.
+also when it runs as root. Everything else on the machine works as before.
+
+That stops programs that shouldn't touch the TPM, including ones running as
+root. It doesn't stop someone with root who sets out to remove `tpmlsm` or get
+around it; see [Limitations](#limitations).
 
 It's built on [eBPF](https://ebpf.io) and BPF LSM. A binary is on the list by
 its path and the SHA-256 of its contents, so changing the file, or copying it

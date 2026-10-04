@@ -1,7 +1,11 @@
 // tpmlsm decides which programs may open the TPM on a Linux machine. You give
 // it a list of binaries, it compiles that list in, and from then on the kernel
-// refuses every other program that tries to open /dev/tpm0 or /dev/tpmrm0,
-// including programs running as root.
+// refuses every other program that tries to open /dev/tpm0 or /dev/tpmrm0, also
+// when it runs as root.
+//
+// That stops programs that shouldn't touch the TPM, including ones running as
+// root. It doesn't stop someone with root who sets out to remove tpmlsm or get
+// around it.
 //
 // It's built on eBPF and BPF LSM. A binary is on the list by its path and the
 // SHA-256 of its contents, so changing the file, or copying it somewhere else,
