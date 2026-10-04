@@ -90,8 +90,9 @@ make
 `tpmlsm` refuses to start with an empty or malformed allowlist. Run
 `sudo ./tpmlsm` at every boot, before anything that uses the TPM, and add
 `-watch` to run it in the foreground and log every allowed and denied open.
-Enforcement lasts until the next reboot. There is no command to remove it, so
-changing the list means building and shipping a new `tpmlsm` and rebooting.
+There's no command to remove it, so changing the list means building and
+shipping a new `tpmlsm` and rebooting. Root can still delete its pins; see
+Limitations.
 
 ### Limitations
 
