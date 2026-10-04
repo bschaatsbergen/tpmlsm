@@ -1,0 +1,6 @@
+# SHA-256 of each binary that may open the TPM, one per line. sha256sum
+# output works as is, for example:
+#
+#   sha256sum "$(readlink -f /usr/bin/tpm2_getrandom)" >> allowlist.txt
+#
+# This file is compiled into tpmlsm. Rebuild with make after changing it.

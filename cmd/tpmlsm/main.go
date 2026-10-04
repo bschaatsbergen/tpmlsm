@@ -1,0 +1,215 @@
+// Command tpmlsm restricts which binaries may open the TPM, enforced in the
+// kernel with BPF LSM. A binary is allowed by the SHA-256 of its file, so a
+// renamed copy is allowed and a modified one is not, root included. The
+// allowed hashes are compiled in from allowlist.txt.
+package main
+
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type event tpmlsm ../../bpf/tpmlsm.c
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/bschaatsbergen/tpmlsm"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/ringbuf"
+	"golang.org/x/sys/unix"
+)
+
+// pinDir holds the pinned LSM links. bpffs lives in memory, so a reboot
+// removes the pins and ends enforcement.
+const pinDir = "/sys/fs/bpf/tpmlsm"
+
+var tpmDevices = []string{"/dev/tpm0", "/dev/tpmrm0"}
+
+const usage = `Usage: tpmlsm [options]
+       tpmlsm unload
+
+Options:
+`
+
+func main() {
+	if len(os.Args) == 2 && os.Args[1] == "unload" {
+		if err := os.RemoveAll(pinDir); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("unloaded")
+		return
+	}
+
+	guard := flag.Bool("guard", false, "also deny detaching links and loading LSM programs through bpf()")
+	watch := flag.Bool("watch", true, "log allow and deny events until Ctrl-C; enforcement stays after exit")
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, usage)
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+	if flag.NArg() != 0 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	if err := run(*guard, *watch); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(guard, watch bool) error {
+	allowed, err := parseAllowlist(tpmlsm.Allowlist)
+	if err != nil {
+		return err
+	}
+	if len(allowed) == 0 {
+		return fmt.Errorf("no hashes compiled in; add them to allowlist.txt and rebuild")
+	}
+	if err := checkBPFLSM(); err != nil {
+		return err
+	}
+	if _, err := os.Stat(pinDir); err == nil {
+		return fmt.Errorf("%s exists; run 'tpmlsm unload' first", pinDir)
+	}
+
+	var objs tpmlsmObjects
+	if err := loadTpmlsmObjects(&objs, nil); err != nil {
+		return err
+	}
+	defer objs.Close()
+
+	for _, p := range tpmDevices {
+		dev, err := kdev(p)
+		if err != nil {
+			return err
+		}
+		if err := objs.TpmDevs.Put(dev, uint8(1)); err != nil {
+			return err
+		}
+	}
+
+	for _, a := range allowed {
+		if err := objs.AllowedHashes.Put(a.sum, uint8(1)); err != nil {
+			return err
+		}
+		log.Printf("allow sha256=%x %s", a.sum, a.name)
+	}
+
+	// Populate, then freeze, then attach. A frozen map can't be written from
+	// userspace, root included; the BPF programs can still read it.
+	if err := objs.AllowedHashes.Freeze(); err != nil {
+		return err
+	}
+	if err := objs.TpmDevs.Freeze(); err != nil {
+		return err
+	}
+
+	progs := []struct {
+		name string
+		prog *ebpf.Program
+	}{
+		{"on_exec", objs.OnExec},
+		{"on_fork", objs.OnFork},
+		{"tpm_open", objs.TpmOpen},
+	}
+	// The guard goes last so it never blocks the attaches before it.
+	if guard {
+		progs = append(progs, struct {
+			name string
+			prog *ebpf.Program
+		}{"guard_bpf", objs.GuardBpf})
+	}
+
+	if err := os.MkdirAll(pinDir, 0o700); err != nil {
+		return err
+	}
+	for _, p := range progs {
+		if err := attach(p.name, p.prog); err != nil {
+			os.RemoveAll(pinDir)
+			return fmt.Errorf("attach %s: %w", p.name, err)
+		}
+	}
+	log.Printf("enforcing; pinned to %s, run 'tpmlsm unload' to remove", pinDir)
+
+	if !watch {
+		return nil
+	}
+	return watchEvents(objs.Events)
+}
+
+// attach attaches prog as an LSM program and pins the link, so it stays
+// attached after this process exits.
+func attach(name string, prog *ebpf.Program) error {
+	l, err := link.AttachLSM(link.LSMOptions{Program: prog})
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+	return l.Pin(filepath.Join(pinDir, name))
+}
+
+// checkBPFLSM fails if BPF LSM isn't active. Without it the programs attach
+// without error and never run.
+func checkBPFLSM() error {
+	b, err := os.ReadFile("/sys/kernel/security/lsm")
+	if err != nil {
+		return err
+	}
+	lsms := strings.TrimSpace(string(b))
+	if slices.Contains(strings.Split(lsms, ","), "bpf") {
+		return nil
+	}
+	return fmt.Errorf("BPF LSM is not enabled (active: %s); add bpf to lsm= on the kernel command line", lsms)
+}
+
+// kdev returns the device number of path in the kernel's encoding,
+// major<<20 | minor. stat's st_rdev uses a different encoding and would
+// never match i_rdev in the BPF program.
+func kdev(path string) (uint32, error) {
+	var st unix.Stat_t
+	if err := unix.Stat(path, &st); err != nil {
+		return 0, err
+	}
+	return unix.Major(uint64(st.Rdev))<<20 | unix.Minor(uint64(st.Rdev)), nil
+}
+
+func watchEvents(m *ebpf.Map) error {
+	rd, err := ringbuf.NewReader(m)
+	if err != nil {
+		return err
+	}
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt)
+		<-sig
+		rd.Close()
+	}()
+
+	log.Println("watching, Ctrl-C to stop (enforcement stays)")
+	for {
+		rec, err := rd.Read()
+		if errors.Is(err, ringbuf.ErrClosed) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var e tpmlsmEvent
+		if err := binary.Read(bytes.NewReader(rec.RawSample), binary.NativeEndian, &e); err != nil {
+			return err
+		}
+		verdict := "DENY "
+		if e.Allowed == 1 {
+			verdict = "ALLOW"
+		}
+		log.Printf("%s pid=%d comm=%s dev=%d:%d", verdict,
+			e.Pid, unix.ByteSliceToString(e.Comm[:]), e.Dev>>20, e.Dev&0xfffff)
+	}
+}
