@@ -34,22 +34,20 @@ const pinDir = "/sys/fs/bpf/tpmlsm"
 
 var tpmDevices = []string{"/dev/tpm0", "/dev/tpmrm0"}
 
-const usage = `tpmlsm is an eBPF-based Linux kernel guard that lets only binaries in its
-compiled-in allowlist use the TPM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
-and stays until the next reboot.
+const usage = `eBPF-based Linux kernel guard that lets only allowlisted binaries use the TPM.
 
 Usage:
-  tpmlsm [options]   load and enforce the allowlist
-  tpmlsm help        show this help
+  tpmlsm [flags]   load the allowlist and enforce it until the next reboot
+  tpmlsm help      show this help
 
-Options:
+Flags:
+  -watch           keep running and log every allowed and denied TPM open
 `
 
 func main() {
-	watch := flag.Bool("watch", false, "keep running and log allow and deny events until Ctrl-C")
+	watch := flag.Bool("watch", false, "keep running and log every allowed and denied TPM open")
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), usage)
-		flag.PrintDefaults()
 	}
 
 	if len(os.Args) == 2 && os.Args[1] == "help" {
