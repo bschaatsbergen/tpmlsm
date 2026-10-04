@@ -32,26 +32,40 @@ const pinDir = "/sys/fs/bpf/tpmlsm"
 
 var tpmDevices = []string{"/dev/tpm0", "/dev/tpmrm0"}
 
-const usage = `Usage: tpmlsm [options]
-       tpmlsm unload
+const usage = `tpmlsm lets only the binaries in its compiled-in allowlist open the TPM,
+enforced in the kernel with BPF LSM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
+and stays after tpmlsm exits.
+
+Usage:
+  tpmlsm [options]   load and enforce the allowlist
+  tpmlsm unload      remove enforcement
+  tpmlsm help        show this help
 
 Options:
 `
 
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "unload" {
-		if err := os.RemoveAll(pinDir); err != nil {
-			log.Fatal(err)
-		}
-		log.Println("unloaded")
-		return
-	}
-
 	watch := flag.Bool("watch", false, "keep running and log allow and deny events until Ctrl-C")
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, usage)
+		fmt.Fprint(flag.CommandLine.Output(), usage)
 		flag.PrintDefaults()
 	}
+
+	if len(os.Args) == 2 {
+		switch os.Args[1] {
+		case "unload":
+			if err := os.RemoveAll(pinDir); err != nil {
+				log.Fatal(err)
+			}
+			log.Println("unloaded")
+			return
+		case "help":
+			flag.CommandLine.SetOutput(os.Stdout)
+			flag.Usage()
+			return
+		}
+	}
+
 	flag.Parse()
 	if flag.NArg() != 0 {
 		flag.Usage()

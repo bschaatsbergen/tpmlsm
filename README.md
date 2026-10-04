@@ -80,9 +80,15 @@ list means building and shipping a new `tpmlsm`.
 ### Usage
 
 ```
-$ ./tpmlsm -h
-Usage: tpmlsm [options]
-       tpmlsm unload
+$ ./tpmlsm help
+tpmlsm lets only the binaries in its compiled-in allowlist open the TPM,
+enforced in the kernel with BPF LSM. Enforcement is pinned to /sys/fs/bpf/tpmlsm
+and stays after tpmlsm exits.
+
+Usage:
+  tpmlsm [options]   load and enforce the allowlist
+  tpmlsm unload      remove enforcement
+  tpmlsm help        show this help
 
 Options:
   -watch
