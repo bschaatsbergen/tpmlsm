@@ -42,7 +42,7 @@ Usage:
 
 tpmlsm loads its compiled-in allowlist into the kernel and exits. From then on
 only the listed binaries may open /dev/tpm0 and /dev/tpmrm0, until the next
-reboot. Changing the list means building a new tpmlsm.
+reboot.
 
 Flags:
   -watch   stay in the foreground and log each allowed and denied TPM open
