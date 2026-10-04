@@ -1,8 +1,11 @@
-// Command tpmlsm makes sure only the binaries on its allowlist can open the
-// TPM, enforced in the kernel with BPF LSM. A binary counts as allowed when its
-// file is on the list and the file's SHA-256 matches, so a changed binary or a
-// copy somewhere else is turned away, root included. The list is compiled in
-// from allowlist.txt.
+// tpmlsm decides which programs may open the TPM on a Linux machine. You give
+// it a list of binaries, it compiles that list in, and from then on the kernel
+// refuses every other program that tries to open /dev/tpm0 or /dev/tpmrm0,
+// including programs running as root.
+//
+// It's built on eBPF and BPF LSM. A binary is on the list by its path and the
+// SHA-256 of its contents, so changing the file, or copying it somewhere else,
+// takes it off the list.
 package main
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -type event tpmlsm ../../bpf/tpmlsm.c
