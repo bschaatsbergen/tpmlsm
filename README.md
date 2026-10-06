@@ -44,7 +44,7 @@ code that runs there.
 ### Requirements
 
 `tpmlsm` requires >= 5.18 kernel, for `bpf_ima_file_hash`. It has been tested
-on Ubuntu 24.04 with `6.8.0-146-generic`.
+on a 6.8 kernel.
 
 The following kernel configuration is required.
 
@@ -58,24 +58,22 @@ The following kernel configuration is required.
 You can use `grep $OPTION /boot/config-$(uname -r)` to validate whether an
 option is enabled.
 
-BPF LSM also has to be in the active LSM list, which on Ubuntu it is not by
-default. Check with:
+BPF LSM also has to be in the active LSM list. Which LSMs are active by
+default is set by `CONFIG_LSM` at build time, and many distribution kernels
+leave `bpf` out. Check with:
 
 ```
 cat /sys/kernel/security/lsm
 ```
 
-If `bpf` is missing, append it to that list and pass it as `lsm=` on the kernel
-command line. On Ubuntu:
-
-```
-echo 'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT lsm=lockdown,capability,landlock,yama,apparmor,bpf ima_hash=sha256"' | sudo tee /etc/default/grub.d/99-tpmlsm.cfg
-sudo update-grub && sudo reboot
-```
+If `bpf` is missing, append it to that list and pass the result as `lsm=` on
+the kernel command line, through your bootloader's configuration, then reboot.
+`lsm=` replaces `CONFIG_LSM`, so keep every LSM that is already listed.
 
 `tpmlsm` refuses to start when BPF LSM is not active. IMA has to hash with
-SHA-256 (`ima_hash=sha256`, the default on Ubuntu); with any other algorithm
-every binary is denied.
+SHA-256; with any other algorithm every binary is denied. The upstream kernel
+defaults to SHA-1, and the build-time default is in `CONFIG_IMA_DEFAULT_HASH`.
+If it isn't `sha256`, also pass `ima_hash=sha256` on the kernel command line.
 
 ### Allowlist
 
@@ -97,8 +95,8 @@ Limitations.
 ### Limitations
 
 * Allowing a binary allows everything it can do. Allowing `python3` allows
-  every Python script, and on Ubuntu all `tpm2_*` commands are one `tpm2`
-  binary.
+  every Python script, and since tpm2-tools 5.0 all `tpm2_*` commands are
+  symlinks to one `tpm2` binary.
 * Only the binary is checked, not the libraries it loads. Anyone who can start
   an allowed program can slip in code with `LD_PRELOAD`, and root also with
   `/etc/ld.so.preload` or a debugger. Prefer static binaries, such as Go built
@@ -121,15 +119,9 @@ Limitations.
 
 * Go >= 1.26
 * LLVM/clang
-* libbpf headers (`libbpf-dev`)
-* bpftool (`linux-tools`)
+* libbpf headers
+* bpftool
 * make
-
-On Ubuntu:
-
-```
-sudo apt-get install -y clang llvm libbpf-dev golang-go linux-tools-$(uname -r) linux-tools-common make
-```
 
 ### Building
 
